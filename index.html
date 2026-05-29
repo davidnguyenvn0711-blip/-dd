@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SpikeGuard — Daily Ops</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0d1117;--bg2:#161b26;--bg3:#1c2333;--bg4:#232d3f;
+  --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.11);
+  --text:#e2e8f0;--text2:#94a3b8;--text3:#4b5675;
+  --blue:#3b82f6;--blue-dim:rgba(59,130,246,0.12);
+  --green:#10b981;--green-dim:rgba(16,185,129,0.1);
+  --amber:#f59e0b;--amber-dim:rgba(245,158,11,0.1);
+  --red:#ef4444;--red-dim:rgba(239,68,68,0.1);
+  --r:8px;--r-lg:12px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-size:13px;line-height:1.5}
+button,input,select,textarea{font-family:inherit}
+button{cursor:pointer}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:3px}
+
+/* ── SHELL ── */
+.shell{display:grid;grid-template-columns:52px 1fr;grid-template-rows:48px 1fr;height:100vh}
+.topbar{grid-column:1/-1;display:flex;align-items:center;gap:0;background:var(--bg2);border-bottom:1px solid var(--border);padding:0}
+.logo-mark{width:52px;height:48px;display:flex;align-items:center;justify-content:center;background:var(--blue);font-size:18px;flex-shrink:0}
+.topbar-inner{flex:1;display:flex;align-items:center;justify-content:space-between;padding:0 16px}
+.topbar-left{display:flex;align-items:center;gap:12px}
+.app-name{font-weight:600;font-size:14px;letter-spacing:-0.3px}
+.data-pill{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);background:var(--bg3);border:1px solid var(--border2);border-radius:20px;padding:3px 10px;cursor:pointer;transition:.15s}
+.data-pill:hover{border-color:var(--blue);color:var(--text)}
+.dot{width:6px;height:6px;border-radius:50%}
+.dot-green{background:var(--green);box-shadow:0 0 5px var(--green)}
+.dot-amber{background:var(--amber)}
+.dot-gray{background:var(--text3)}
+.topbar-right{display:flex;align-items:center;gap:8px}
+
+/* ── ICON NAV ── */
+.icon-nav{background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:8px 0;gap:2px}
+.nav-btn{width:36px;height:36px;border-radius:var(--r);border:none;background:none;color:var(--text3);display:flex;align-items:center;justify-content:center;transition:.15s;position:relative;flex-shrink:0}
+.nav-btn:hover{background:var(--bg3);color:var(--text2)}
+.nav-btn.active{background:var(--blue-dim);color:var(--blue)}
+.nav-btn svg{width:16px;height:16px}
+.nav-divider{width:24px;height:1px;background:var(--border);margin:4px 0}
+.nav-badge{position:absolute;top:4px;right:4px;min-width:14px;height:14px;background:var(--red);color:#fff;font-size:9px;font-weight:700;border-radius:7px;display:flex;align-items:center;justify-content:center;padding:0 3px;font-family:'JetBrains Mono',monospace}
+
+/* ── MAIN AREA ── */
+.main{overflow-y:auto;background:var(--bg)}
+.page{display:none;padding:20px 24px;height:100%}
+.page.active{display:block}
+
+/* ── TYPOGRAPHY ── */
+.page-title{font-size:17px;font-weight:600;letter-spacing:-.4px;margin-bottom:2px}
+.page-sub{font-size:12px;color:var(--text2);margin-bottom:18px}
+.section-head{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin:16px 0 8px}
+
+/* ── CARDS ── */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px}
+.card+.card{margin-top:12px}
+.card-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.card-title{font-size:12px;font-weight:500;color:var(--text)}
+.card-sub{font-size:11px;color:var(--text3);margin-top:1px}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:var(--r);font-size:12px;font-weight:500;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);transition:.15s;white-space:nowrap}
+.btn:hover{border-color:var(--blue);color:var(--text);background:var(--bg4)}
+.btn-primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn-primary:hover{background:#2563eb;border-color:#2563eb;color:#fff}
+.btn-ghost{border-color:transparent;background:transparent;padding:4px 8px}
+.btn-ghost:hover{background:var(--bg3);border-color:var(--border)}
+.btn-red{border-color:rgba(239,68,68,.25);color:var(--red)}
+.btn-red:hover{background:var(--red-dim);border-color:var(--red)}
+.btn-green{background:var(--green);border-color:var(--green);color:#fff}
+.btn-green:hover{background:#059669;border-color:#059669;color:#fff}
+.btn-xs{padding:3px 8px;font-size:11px}
+.btn-sm{padding:5px 10px;font-size:11px}
+.btn-row{display:flex;gap:6px;flex-wrap:wrap}
+
+/* ── CHIPS ── */
+.chip{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;letter-spacing:.3px;white-space:nowrap}
+.chip::before{content:'';width:4px;height:4px;border-radius:50%;background:currentColor;flex-shrink:0}
+.chip-red{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.chip-amber{background:var(--amber-dim);color:var(--amber);border:1px solid rgba(245,158,11,.2)}
+.chip-green{background:var(--green-dim);color:var(--green);border:1px solid rgba(16,185,129,.2)}
+.chip-blue{background:var(--blue-dim);color:var(--blue);border:1px solid rgba(59,130,246,.2)}
+.chip-gray{background:var(--bg3);color:var(--text3);border:1px solid var(--border)}
+
+/* ── TRIAGE QUEUE (main daily view) ── */
+.triage-shell{display:grid;grid-template-columns:1fr 380px;gap:12px;height:calc(100vh - 120px)}
+.queue-panel{display:flex;flex-direction:column;overflow:hidden}
+.detail-panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);display:flex;flex-direction:column;overflow:hidden}
+.queue-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.search-wrap{position:relative;flex:1;min-width:160px}
+.search-wrap input{width:100%;background:var(--bg2);border:1px solid var(--border2);color:var(--text);padding:6px 10px 6px 30px;border-radius:var(--r);font-size:12px}
+.search-wrap input:focus{outline:none;border-color:var(--blue)}
+.search-wrap svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--text3);width:13px;height:13px}
+.filter-select{background:var(--bg2);border:1px solid var(--border2);color:var(--text2);padding:6px 8px;border-radius:var(--r);font-size:12px}
+.filter-select:focus{outline:none;border-color:var(--blue)}
+
+/* Queue count tabs */
+.count-tabs{display:flex;gap:2px;margin-bottom:10px}
+.ct{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:var(--r);cursor:pointer;border:1px solid transparent;font-size:12px;font-weight:500;color:var(--text2);transition:.15s;background:none}
+.ct:hover{background:var(--bg2);border-color:var(--border)}
+.ct.active{background:var(--bg2);border-color:var(--border2);color:var(--text)}
+.ct-count{font-size:11px;font-family:'JetBrains Mono',monospace;padding:1px 6px;border-radius:8px}
+.ct-all .ct-count{background:var(--bg3);color:var(--text2)}
+.ct-high.active .ct-count,.ct-high:hover .ct-count{background:var(--red-dim);color:var(--red)}
+.ct-review.active .ct-count,.ct-review:hover .ct-count{background:var(--amber-dim);color:var(--amber)}
+.ct-safe.active .ct-count,.ct-safe:hover .ct-count{background:var(--green-dim);color:var(--green)}
+.ct-actioned.active .ct-count,.ct-actioned:hover .ct-count{background:var(--blue-dim);color:var(--blue)}
+
+/* Queue table */
+.queue-scroll{flex:1;overflow-y:auto}
+.q-row{display:grid;grid-template-columns:16px 1fr 80px 70px 70px 90px 80px;gap:0;padding:9px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:.1s;align-items:center}
+.q-row:hover{background:var(--bg2)}
+.q-row.selected{background:rgba(59,130,246,.07);border-left:2px solid var(--blue)}
+.q-row.actioned{opacity:.55}
+.q-head{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;padding:7px 12px;background:var(--bg);position:sticky;top:0;z-index:2;display:grid;grid-template-columns:16px 1fr 80px 70px 70px 90px 80px;gap:0;border-bottom:1px solid var(--border2);cursor:default}
+.q-head span{cursor:pointer;user-select:none}
+.q-head span:hover{color:var(--text2)}
+.q-priority{width:3px;height:28px;border-radius:2px;flex-shrink:0}
+.q-customer{min-width:0}
+.q-customer-name{font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.q-customer-prod{font-size:10px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.q-num{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text2);text-align:right}
+.q-num-red{color:var(--red);font-weight:600}
+.q-num-amber{color:var(--amber);font-weight:500}
+.score-mini{display:flex;align-items:center;gap:5px;justify-content:flex-end}
+.score-track{width:36px;height:3px;background:var(--bg3);border-radius:2px;overflow:hidden;flex-shrink:0}
+.score-fill{height:100%;border-radius:2px}
+.score-val{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text2)}
+
+/* Detail panel */
+.dp-header{padding:14px 16px;border-bottom:1px solid var(--border);background:var(--bg3)}
+.dp-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--text3);gap:8px;font-size:12px}
+.dp-empty svg{width:28px;height:28px;opacity:.25}
+.dp-section{padding:12px 16px;border-bottom:1px solid var(--border)}
+.dp-label{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.dp-stat-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.dp-stat{background:var(--bg3);border-radius:var(--r);padding:10px 12px}
+.dp-stat-val{font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace;line-height:1}
+.dp-stat-label{font-size:10px;color:var(--text3);margin-top:3px}
+.reason-item{display:flex;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px;color:var(--text2);line-height:1.5}
+.reason-item:last-child{border-bottom:none}
+.reason-icon{font-size:11px;flex-shrink:0;margin-top:1px}
+.action-row{padding:12px 16px;display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--border);background:var(--bg3)}
+.action-label{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
+.action-btns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.action-note{background:var(--bg2);border:1px solid var(--border2);color:var(--text);padding:6px 8px;border-radius:var(--r);font-size:11px;width:100%;resize:none;height:52px}
+.action-note:focus{outline:none;border-color:var(--blue)}
+
+/* Trend sparkline */
+.sparkline-row{display:flex;align-items:center;gap:6px}
+.spark{display:flex;align-items:flex-end;gap:1.5px;height:24px}
+.spark-bar{width:4px;border-radius:1px;transition:.2s}
+
+/* ── OVERVIEW ── */
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px}
+.kpi{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px 16px;cursor:pointer;transition:.15s}
+.kpi:hover{border-color:var(--border2)}
+.kpi.kpi-alert{border-color:rgba(239,68,68,.3);background:rgba(239,68,68,.04)}
+.kpi.kpi-warn{border-color:rgba(245,158,11,.25);background:rgba(245,158,11,.03)}
+.kpi-label{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.kpi-val{font-size:26px;font-weight:700;font-family:'JetBrains Mono',monospace;line-height:1;letter-spacing:-1px}
+.kpi-val-red{color:var(--red)}
+.kpi-val-amber{color:var(--amber)}
+.kpi-val-green{color:var(--green)}
+.kpi-val-blue{color:var(--blue)}
+.kpi-delta{font-size:11px;margin-top:4px}
+.charts-2{display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px}
+.charts-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px}
+.ch{position:relative}
+
+/* ── UPLOAD ── */
+.upload-page{max-width:720px}
+.drop-zone{border:2px dashed var(--border2);border-radius:var(--r-lg);padding:36px 24px;text-align:center;cursor:pointer;transition:.2s;background:var(--bg2)}
+.drop-zone:hover,.drop-zone.drag{border-color:var(--blue);background:rgba(59,130,246,.04)}
+.drop-icon{font-size:28px;margin-bottom:10px;opacity:.4}
+.drop-title{font-size:14px;font-weight:600;margin-bottom:4px}
+.drop-sub{font-size:12px;color:var(--text2)}
+.col-map{display:grid;grid-template-columns:1fr 1fr 80px;gap:0}
+.col-row{display:contents}
+.col-row>*{padding:8px 10px;border-bottom:1px solid var(--border);font-size:12px;display:flex;align-items:center}
+.col-row.header>*{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);background:var(--bg3)}
+.req-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-right:6px}
+
+/* ── SETTINGS ── */
+.settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.s-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
+.s-row:last-child{border-bottom:none}
+.s-label{font-size:12px;font-weight:500}
+.s-desc{font-size:11px;color:var(--text3);margin-top:1px}
+.s-ctrl{display:flex;align-items:center;gap:8px}
+.s-ctrl input[type=range]{width:100px;accent-color:var(--blue)}
+.s-val{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--blue);min-width:36px;text-align:right}
+input[type=text],input[type=email]{background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:7px 10px;border-radius:var(--r);font-size:12px;width:100%}
+input[type=text]:focus,input[type=email]:focus{outline:none;border-color:var(--blue)}
+select{background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:7px 10px;border-radius:var(--r);font-size:12px}
+select:focus{outline:none;border-color:var(--blue)}
+
+/* ── EMAIL PAGE ── */
+.email-shell{display:grid;grid-template-columns:320px 1fr;gap:12px;height:calc(100vh - 120px)}
+.email-config{display:flex;flex-direction:column;gap:10px;overflow-y:auto}
+.email-preview-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;display:flex;flex-direction:column}
+.email-preview-toolbar{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg3)}
+.sh-item{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg3);border-radius:var(--r);margin-bottom:6px}
+.sh-avatar{width:28px;height:28px;border-radius:50%;background:var(--blue-dim);color:var(--blue);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sh-info{flex:1;min-width:0}
+.sh-name{font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sh-role{font-size:10px;color:var(--text3)}
+.send-log-item{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:11px}
+.send-log-time{font-family:'JetBrains Mono',monospace;color:var(--text3);flex-shrink:0;min-width:60px}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(60px);background:var(--bg4);border:1px solid var(--border2);border-radius:var(--r);padding:9px 16px;font-size:12px;color:var(--text);z-index:9999;opacity:0;transition:.25s;pointer-events:none;white-space:nowrap}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+
+/* ── MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;display:none;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r-lg);padding:20px;width:380px;max-width:90vw}
+.modal-title{font-size:14px;font-weight:600;margin-bottom:14px}
+.modal-field{margin-bottom:10px}
+.modal-label{font-size:11px;font-weight:500;color:var(--text2);margin-bottom:4px}
+
+/* ── INSIGHT BOX ── */
+.insight{display:flex;gap:8px;align-items:flex-start;background:var(--bg3);border-radius:var(--r);padding:10px 12px;margin-bottom:8px;border-left:2px solid var(--blue)}
+.insight-icon{font-size:12px;flex-shrink:0;margin-top:1px}
+.insight-text{font-size:11px;color:var(--text2);line-height:1.6}
+.insight-text strong{color:var(--text);font-weight:500}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="logo-mark">⚡</div>
+  <div class="topbar-inner">
+    <div class="topbar-left">
+      <span class="app-name">SpikeGuard</span>
+      <div class="data-pill" onclick="navTo('upload')" title="Click to change data source">
+        <div class="dot" id="statusDot" style="background:var(--green);box-shadow:0 0 5px var(--green)"></div>
+        <span id="dataLabel">Loading...</span>
+      </div>
+      <div style="font-size:11px;color:var(--text3)" id="runTimestamp"></div>
+    </div>
+    <div class="topbar-right">
+      <button class="btn btn-sm" onclick="runDetection(false)" id="runBtn">⟳ Re-run</button>
+      <button class="btn btn-sm btn-primary" onclick="navTo('upload')">↑ Load data</button>
+    </div>
+  </div>
+</div>
+
+<!-- ICON NAV -->
+<div class="icon-nav">
+  <!-- Triage -->
+  <button class="nav-btn active" id="nav-triage" onclick="navTo('triage')" title="Today's queue">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h8M2 12h5"/></svg>
+    <span class="nav-badge" id="qBadge" style="display:none">0</span>
+  </button>
+  <!-- Overview -->
+  <button class="nav-btn" id="nav-overview" onclick="navTo('overview')" title="Overview">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+  </button>
+  <div class="nav-divider"></div>
+  <!-- Email -->
+  <button class="nav-btn" id="nav-email" onclick="navTo('email')" title="Email alerts">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="14" height="10" rx="1.5"/><path d="M1 5l7 5 7-5"/></svg>
+  </button>
+  <!-- Upload -->
+  <button class="nav-btn" id="nav-upload" onclick="navTo('upload')" title="Upload data">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 10V3M5 6l3-3 3 3"/><path d="M2 12h12"/></svg>
+  </button>
+  <div class="nav-divider"></div>
+  <!-- Settings -->
+  <button class="nav-btn" id="nav-settings" onclick="navTo('settings')" title="Settings">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2m0 10v2M1 8h2m10 0h2m-2.9-4.1-1.4 1.4M4.3 11.7l-1.4 1.4m0-9.2 1.4 1.4m7.4 7.4 1.4 1.4"/></svg>
+  </button>
+</div>
+
+<!-- MAIN -->
+<div class="main" id="mainScroll">
+
+<!-- ══ TRIAGE PAGE (DEFAULT DAILY VIEW) ══ -->
+<div id="page-triage" class="page active">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+    <div>
+      <div class="page-title">Today's triage queue</div>
+      <div class="page-sub" id="triageSubtitle">Orders requiring review before shipment</div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-sm" onclick="exportQueue()">↓ Export CSV</button>
+      <button class="btn btn-sm btn-primary" onclick="sendAlertsNow()">📤 Send alerts</button>
+    </div>
+  </div>
+
+  <div class="count-tabs" id="countTabs">
+    <div class="ct ct-all active" onclick="filterQueue('all')"><span>All flagged</span><span class="ct-count" id="ct-all">0</span></div>
+    <div class="ct ct-high" onclick="filterQueue('HIGH RISK')">🔴 <span>Hold — high risk</span><span class="ct-count" id="ct-high">0</span></div>
+    <div class="ct ct-review" onclick="filterQueue('REVIEW')">🟡 <span>Review</span><span class="ct-count" id="ct-review">0</span></div>
+    <div class="ct ct-safe" onclick="filterQueue('SAFE')">🟢 <span>Safe (all)</span><span class="ct-count" id="ct-safe">0</span></div>
+    <div class="ct ct-actioned" onclick="filterQueue('actioned')">✓ <span>Actioned</span><span class="ct-count" id="ct-actioned">0</span></div>
+  </div>
+
+  <div class="triage-shell">
+    <!-- LEFT: queue list -->
+    <div class="queue-panel">
+      <div class="queue-toolbar">
+        <div class="search-wrap">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="4"/><path d="M11 11l3 3"/></svg>
+          <input type="text" id="qSearch" placeholder="Search customer, product, order ID…" oninput="renderQueue()">
+        </div>
+        <select class="filter-select" id="qSortBy" onchange="renderQueue()">
+          <option value="score">Sort: Risk score</option>
+          <option value="qty">Sort: Quantity</option>
+          <option value="mult">Sort: × baseline</option>
+          <option value="date">Sort: Date</option>
+        </select>
+        <select class="filter-select" id="qProduct" onchange="renderQueue()">
+          <option value="all">All products</option>
+        </select>
+      </div>
+      <div class="q-head">
+        <span></span>
+        <span onclick="setSortBy('customer')">Customer / Product</span>
+        <span onclick="setSortBy('qty')" style="text-align:right">Qty</span>
+        <span onclick="setSortBy('mult')" style="text-align:right">× Base</span>
+        <span onclick="setSortBy('score')" style="text-align:right">Forecast%</span>
+        <span onclick="setSortBy('score')" style="text-align:right">Score</span>
+        <span style="text-align:right">Status</span>
+      </div>
+      <div class="queue-scroll" id="queueScroll">
+        <div style="padding:40px;text-align:center;color:var(--text3);font-size:12px">Run detection to populate queue</div>
+      </div>
+      <div style="padding:6px 12px;font-size:11px;color:var(--text3);border-top:1px solid var(--border)" id="queueFooter"></div>
+    </div>
+
+    <!-- RIGHT: order detail -->
+    <div class="detail-panel" id="detailPanel">
+      <div class="dp-empty" id="dpEmpty">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1a5 5 0 015 5v2l1 3H2l1-3V6a5 5 0 015-5z"/><path d="M6.5 13a1.5 1.5 0 003 0"/></svg>
+        <span>Select an order to investigate</span>
+      </div>
+      <div id="dpContent" style="display:none;flex:1;overflow-y:auto;display:none;flex-direction:column">
+        <!-- Filled by JS -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ OVERVIEW PAGE ══ -->
+<div id="page-overview" class="page">
+  <div class="page-title">Detection overview</div>
+  <div class="page-sub" id="overviewSub">Period summary across all orders</div>
+  <div class="kpi-row" id="kpiRow">
+    <div class="kpi kpi-alert" onclick="navTo('triage')"><div class="kpi-label">High risk</div><div class="kpi-val kpi-val-red" id="k-high">—</div><div class="kpi-delta" style="color:var(--text3)">Hold shipment</div></div>
+    <div class="kpi kpi-warn" onclick="filterQueue('REVIEW');navTo('triage')"><div class="kpi-label">For review</div><div class="kpi-val kpi-val-amber" id="k-review">—</div><div class="kpi-delta" style="color:var(--text3)">Planner confirms</div></div>
+    <div class="kpi"><div class="kpi-label">Total scanned</div><div class="kpi-val" id="k-total">—</div><div class="kpi-delta" style="color:var(--text3)" id="k-safe-pct">—</div></div>
+    <div class="kpi"><div class="kpi-label">Detection rate</div><div class="kpi-val kpi-val-green" id="k-recall">—</div><div class="kpi-delta" style="color:var(--text3)">True spikes caught</div></div>
+    <div class="kpi"><div class="kpi-label">Spike rate</div><div class="kpi-val kpi-val-blue" id="k-rate">—</div><div class="kpi-delta" style="color:var(--text3)">Of all orders flagged</div></div>
+  </div>
+
+  <div class="charts-2">
+    <div class="card"><div class="card-row"><div><div class="card-title">Spike orders per month</div><div class="card-sub">High risk (red) and review (amber) stacked · grey = total bookings on right axis</div></div></div><div class="ch" style="height:200px"><canvas id="monthlyChart"></canvas></div></div>
+    <div class="card"><div class="card-row"><div><div class="card-title">Score distribution</div><div class="card-sub">Flagged orders only — safe excluded</div></div></div><div class="ch" style="height:200px"><canvas id="distChart"></canvas></div></div>
+  </div>
+  <div class="charts-3">
+    <div class="card"><div class="card-row"><div><div class="card-title">Flagged by customer</div><div class="card-sub">Red = high risk · amber = review</div></div></div><div class="ch" style="height:160px"><canvas id="custChart"></canvas></div></div>
+    <div class="card"><div class="card-row"><div><div class="card-title">Precision vs recall</div><div class="card-sub">Threshold tradeoff curve</div></div></div><div class="ch" style="height:160px"><canvas id="prChart"></canvas></div></div>
+    <div class="card"><div class="card-row"><div><div class="card-title">Product risk</div><div class="card-sub">Spike events by product</div></div></div><div id="prodRisk" style="margin-top:4px"></div></div>
+  </div>
+  <div class="card" id="insightCard"><div class="card-row"><div class="card-title">📊 What this data is telling you</div></div><div id="insightContent"><div style="font-size:12px;color:var(--text3)">Run detection first</div></div></div>
+</div>
+
+<!-- ══ EMAIL PAGE ══ -->
+<div id="page-email" class="page">
+  <div class="page-title">Email alerts</div>
+  <div class="page-sub">Automatically notify the right people when spikes are detected</div>
+  <div class="email-shell">
+    <div class="email-config">
+
+      <div class="card">
+        <div class="card-row"><div class="card-title">Stakeholders</div><button class="btn btn-xs btn-primary" onclick="openModal()">+ Add</button></div>
+        <div id="shList"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-row"><div class="card-title">Alert rules</div></div>
+        <div class="s-row"><div><div class="s-label">Immediate alert threshold</div><div class="s-desc">Score ≥ this → send now</div></div><div class="s-ctrl"><input type="range" id="al-high" min="50" max="90" value="61" step="1" oninput="document.getElementById('alv-high').textContent=this.value"><span class="s-val" id="alv-high">61</span></div></div>
+        <div class="s-row"><div><div class="s-label">Digest threshold</div><div class="s-desc">Include in daily summary</div></div><div class="s-ctrl"><input type="range" id="al-digest" min="20" max="60" value="31" step="1" oninput="document.getElementById('alv-digest').textContent=this.value"><span class="s-val" id="alv-digest">31</span></div></div>
+        <div class="s-row" style="border:none"><div><div class="s-label">Max immediate alerts / day</div><div class="s-desc">Bundle above this limit</div></div><div class="s-ctrl"><input type="range" id="al-max" min="1" max="20" value="5" step="1" oninput="document.getElementById('alv-max').textContent=this.value"><span class="s-val" id="alv-max">5</span></div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-row"><div class="card-title">Generate &amp; send</div></div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <select id="emailType"><option value="immediate">Immediate — high risk alert</option><option value="daily">Daily digest</option><option value="weekly">Weekly summary</option></select>
+          <button class="btn btn-primary" onclick="generatePreview()">Preview email</button>
+          <button class="btn btn-green" onclick="simulateSend()">📤 Simulate send</button>
+        </div>
+        <div id="dispatchMsg" style="display:none;margin-top:8px;font-size:11px;color:var(--green)"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-row"><div class="card-title">Send log</div><button class="btn btn-xs btn-ghost" onclick="clearLog()">Clear</button></div>
+        <div id="sendLog" style="font-size:11px;color:var(--text3)">No sends yet.</div>
+      </div>
+    </div>
+
+    <div class="email-preview-wrap">
+      <div class="email-preview-toolbar">
+        <span id="previewLabel" style="font-size:11px;color:var(--text2)">Select type and click Preview</span>
+        <div class="btn-row">
+          <button class="btn btn-xs" onclick="copyEmail()">Copy HTML</button>
+          <button class="btn btn-xs" onclick="downloadEmail()">↓ Download</button>
+        </div>
+      </div>
+      <div id="emailFrame" style="flex:1;overflow:hidden">
+        <div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text3);font-size:12px;flex-direction:column;gap:8px">
+          <div style="font-size:24px;opacity:.2">✉️</div>
+          <span>Email preview will appear here</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ UPLOAD PAGE ══ -->
+<div id="page-upload" class="page">
+  <div class="upload-page">
+    <div class="page-title">Load booking data</div>
+    <div class="page-sub">Drop your SAP CSV export or generate synthetic data for testing</div>
+
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileIn').click()" ondragover="ev.preventDefault();this.classList.add('drag')" ondrop="handleDrop(event)" ondragleave="this.classList.remove('drag')">
+      <div class="drop-icon">📂</div>
+      <div class="drop-title">Drop SAP booking CSV here</div>
+      <div class="drop-sub">or click to browse · CSV format</div>
+      <div class="btn-row" style="justify-content:center;margin-top:12px">
+        <button class="btn btn-primary" onclick="event.stopPropagation();document.getElementById('fileIn').click()">Choose file</button>
+        <button class="btn" onclick="event.stopPropagation();loadSynthetic()">Use synthetic data</button>
+        <button class="btn" onclick="event.stopPropagation();loadLargeTest()">Load stress test (1000+ orders)</button>
+      </div>
+      <input type="file" id="fileIn" accept=".csv" style="display:none" onchange="handleFile(event)">
+    </div>
+
+    <div class="section-head">Required CSV columns</div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div class="col-map">
+        <div class="col-row header"><div>Column</div><div>Description</div><div>Required</div></div>
+        <div class="col-row"><div style="display:flex;align-items:center"><div class="req-dot" style="background:var(--red)"></div><code style="font-family:'JetBrains Mono',monospace;font-size:11px">order_date</code></div><div>Date order was placed (YYYY-MM-DD)</div><div><span class="chip chip-red">Required</span></div></div>
+        <div class="col-row"><div style="display:flex;align-items:center"><div class="req-dot" style="background:var(--red)"></div><code style="font-family:'JetBrains Mono',monospace;font-size:11px">customer_id</code></div><div>Unique customer code</div><div><span class="chip chip-red">Required</span></div></div>
+        <div class="col-row"><div style="display:flex;align-items:center"><div class="req-dot" style="background:var(--red)"></div><code style="font-family:'JetBrains Mono',monospace;font-size:11px">product_id</code></div><div>Material / SKU code</div><div><span class="chip chip-red">Required</span></div></div>
+        <div class="col-row"><div style="display:flex;align-items:center"><div class="req-dot" style="background:var(--red)"></div><code style="font-family:'JetBrains Mono',monospace;font-size:11px">order_qty</code></div><div>Ordered quantity</div><div><span class="chip chip-red">Required</span></div></div>
+        <div class="col-row"><div style="display:flex;align-items:center"><div class="req-dot" style="background:var(--red)"></div><code style="font-family:'JetBrains Mono',monospace;font-size:11px">monthly_forecast</code></div><div>Monthly forecast for that product</div><div><span class="chip chip-red">Required</span></div></div>
+        <div class="col-row"><div style="display:flex;align-items:center"><div class="req-dot" style="background:var(--amber)"></div><code style="font-family:'JetBrains Mono',monospace;font-size:11px">customer_name</code></div><div>Display name</div><div><span class="chip chip-amber">Optional</span></div></div>
+        <div class="col-row"><div style="display:flex;align-items:center"><div class="req-dot" style="background:var(--amber)"></div><code style="font-family:'JetBrains Mono',monospace;font-size:11px">product_name</code></div><div>Product display name</div><div><span class="chip chip-amber">Optional</span></div></div>
+        <div class="col-row"><div style="display:flex;align-items:center"><div class="req-dot" style="background:var(--amber)"></div><code style="font-family:'JetBrains Mono',monospace;font-size:11px">available_inventory</code></div><div>Stock on hand</div><div><span class="chip chip-amber">Optional</span></div></div>
+        <div class="col-row"><div style="display:flex;align-items:center"><div class="req-dot" style="background:var(--text3)"></div><code style="font-family:'JetBrains Mono',monospace;font-size:11px">is_rush</code></div><div>Rush delivery flag (0 or 1)</div><div><span class="chip chip-gray">Optional</span></div></div>
+      </div>
+    </div>
+    <div style="margin-top:10px"><button class="btn btn-sm" onclick="downloadTemplate()">↓ Download template CSV</button></div>
+    <div id="uploadResult" style="display:none;margin-top:12px"></div>
+  </div>
+</div>
+
+<!-- ══ SETTINGS PAGE ══ -->
+<div id="page-settings" class="page">
+  <div class="page-title">Detection settings</div>
+  <div class="page-sub">Adjust scoring weights and trigger thresholds · changes apply on next run</div>
+  <div class="settings-grid">
+    <div class="card">
+      <div class="card-row"><div class="card-title">Scoring weights</div></div>
+      <div class="s-row"><div><div class="s-label">Forecast deviation</div><div class="s-desc">Max pts when order exceeds forecast</div></div><div class="s-ctrl"><input type="range" id="w-forecast" min="10" max="60" value="40" step="5" oninput="document.getElementById('wv-forecast').textContent=this.value"><span class="s-val" id="wv-forecast">40</span></div></div>
+      <div class="s-row"><div><div class="s-label">Customer baseline</div><div class="s-desc">Max pts vs historical avg</div></div><div class="s-ctrl"><input type="range" id="w-baseline" min="10" max="60" value="35" step="5" oninput="document.getElementById('wv-baseline').textContent=this.value"><span class="s-val" id="wv-baseline">35</span></div></div>
+      <div class="s-row"><div><div class="s-label">Inventory impact</div><div class="s-desc">Max pts for stock depletion risk</div></div><div class="s-ctrl"><input type="range" id="w-inventory" min="5" max="30" value="15" step="5" oninput="document.getElementById('wv-inventory').textContent=this.value"><span class="s-val" id="wv-inventory">15</span></div></div>
+      <div class="s-row" style="border:none"><div><div class="s-label">Behavioral signals</div><div class="s-desc">Pts per flag (dormancy, rush, multi)</div></div><div class="s-ctrl"><input type="range" id="w-behavior" min="3" max="15" value="5" step="1" oninput="document.getElementById('wv-behavior').textContent=this.value"><span class="s-val" id="wv-behavior">5</span></div></div>
+    </div>
+    <div class="card">
+      <div class="card-row"><div class="card-title">Trigger thresholds</div></div>
+      <div class="s-row"><div><div class="s-label">Forecast trigger %</div><div class="s-desc">Min % of forecast to score</div></div><div class="s-ctrl"><input type="range" id="t-forecast" min="20" max="100" value="50" step="5" oninput="document.getElementById('tv-forecast').textContent=this.value+'%'"><span class="s-val" id="tv-forecast">50%</span></div></div>
+      <div class="s-row"><div><div class="s-label">Baseline multiplier trigger</div><div class="s-desc">Min × customer avg to score</div></div><div class="s-ctrl"><input type="range" id="t-baseline" min="1.2" max="4" value="1.5" step="0.1" oninput="document.getElementById('tv-baseline').textContent=parseFloat(this.value).toFixed(1)+'×'"><span class="s-val" id="tv-baseline">1.5×</span></div></div>
+      <div class="s-row"><div><div class="s-label">Dormancy trigger</div><div class="s-desc">Days inactive before flag</div></div><div class="s-ctrl"><input type="range" id="t-dormancy" min="14" max="90" value="45" step="1" oninput="document.getElementById('tv-dormancy').textContent=this.value+'d'"><span class="s-val" id="tv-dormancy">45d</span></div></div>
+      <div class="s-row"><div><div class="s-label">Review threshold (score)</div><div class="s-desc">Min score to enter review queue</div></div><div class="s-ctrl"><input type="range" id="s-review" min="15" max="55" value="31" step="1" oninput="document.getElementById('sv-review').textContent=this.value"><span class="s-val" id="sv-review">31</span></div></div>
+      <div class="s-row" style="border:none"><div><div class="s-label">High risk threshold (score)</div><div class="s-desc">Score to trigger hold + immediate alert</div></div><div class="s-ctrl"><input type="range" id="s-high" min="45" max="90" value="61" step="1" oninput="document.getElementById('sv-high').textContent=this.value"><span class="s-val" id="sv-high">61</span></div></div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;margin-top:4px">
+    <button class="btn btn-sm btn-primary" onclick="runDetection(false);navTo('triage');showToast('Settings saved — re-running detection')">Save &amp; re-run</button>
+    <button class="btn btn-sm" onclick="resetSettings()">Reset defaults</button>
+  </div>
+</div>
+
+</div><!-- /main -->
+</div><!-- /shell -->
+
+<!-- ADD STAKEHOLDER MODAL -->
+<div class="modal-overlay" id="shModal">
+  <div class="modal">
+    <div class="modal-title">Add stakeholder</div>
+    <div class="modal-field"><div class="modal-label">Full name</div><input type="text" id="sh-name" placeholder="e.g. Sarah Chen"></div>
+    <div class="modal-field"><div class="modal-label">Email</div><input type="email" id="sh-email" placeholder="s.chen@company.com"></div>
+    <div class="modal-field"><div class="modal-label">Role</div>
+      <select id="sh-role" style="width:100%"><option>Supply Chain Manager</option><option>Demand Planner</option><option>Operations Manager</option><option>Inventory Manager</option><option>Sales Operations</option><option>Executive / VP</option></select>
+    </div>
+    <div class="modal-field"><div class="modal-label">Alert tier</div>
+      <select id="sh-tier" style="width:100%"><option value="all">All alerts</option><option value="high">High risk only</option><option value="digest">Digest + weekly</option><option value="weekly">Weekly only</option></select>
+    </div>
+    <div class="btn-row" style="margin-top:14px">
+      <button class="btn btn-primary" onclick="addStakeholder()">Add</button>
+      <button class="btn" onclick="closeModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════
+// DATA DEFINITIONS
+// ══════════════════════════════════════════════════════
+const CUSTOMERS=[
+  {id:'C001',name:'ABC Electric',baseAvg:220,baseSd:40,segment:'Distributor'},
+  {id:'C002',name:'Delta Supply',baseAvg:480,baseSd:80,segment:'Large Dist.'},
+  {id:'C003',name:'Omega Wire',baseAvg:110,baseSd:25,segment:'Contractor'},
+  {id:'C004',name:'Metro Elec',baseAvg:340,baseSd:60,segment:'Distributor'},
+  {id:'C005',name:'Apex Ind',baseAvg:90,baseSd:20,segment:'Contractor'},
+  {id:'C006',name:'Volt Corp',baseAvg:650,baseSd:120,segment:'Large Dist.'},
+  {id:'C007',name:'Peak Supply',baseAvg:170,baseSd:35,segment:'Distributor'},
+  {id:'C008',name:'Grid Parts',baseAvg:55,baseSd:15,segment:'Small'},
+];
+const PRODUCTS=[
+  {id:'P001',name:'Copper Cable X1',forecast:2000,inventory:8000,criticality:'Critical'},
+  {id:'P002',name:'Industrial Wire Z2',forecast:1500,inventory:5000,criticality:'High'},
+  {id:'P003',name:'Cable Kit A5',forecast:800,inventory:3000,criticality:'Medium'},
+  {id:'P004',name:'Utility Wire B2',forecast:1200,inventory:4500,criticality:'High'},
+  {id:'P005',name:'Fiber Cable C7',forecast:600,inventory:2000,criticality:'Medium'},
+  {id:'P006',name:'Connector Kit D3',forecast:400,inventory:1500,criticality:'Low'},
+];
+
+// ══════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════
+let G={orders:[],qFilter:'all',qSearch:'',sortBy:'score',selectedId:null,actioned:{},actionNotes:{},productFilter:'all'};
+let stakeholders=[
+  {id:1,name:'James Hoang',email:'j.hoang@southwire.com',role:'Supply Chain Manager',tier:'all'},
+  {id:2,name:'Lisa Park',email:'l.park@southwire.com',role:'Demand Planner',tier:'all'},
+  {id:3,name:'Marcus Webb',email:'m.webb@southwire.com',role:'Operations Manager',tier:'high'},
+  {id:4,name:'Rachel Torres',email:'r.torres@southwire.com',role:'Executive / VP',tier:'weekly'},
+];
+let shIdN=5,sendLog=[],charts={};
+let currentEmailHtml='',currentEmailSubject='';
+
+// ══════════════════════════════════════════════════════
+// RNG + DATA GEN
+// ══════════════════════════════════════════════════════
+function seededRng(seed){let s=seed;return()=>{s=(s*9301+49297)%233280;return s/233280}}
+function rNorm(rng,m,sd){let u=0,v=0;while(!u)u=rng();while(!v)v=rng();return m+sd*Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)}
+
+function generateOrders(seed,days,spikeRate){
+  const rng=seededRng(seed),orders=[],start=new Date('2024-07-01');
+  let id=1000;
+  CUSTOMERS.forEach(c=>{
+    let lastDay=-30;
+    for(let day=0;day<days;day++){
+      const prob=(c.baseAvg/220)*0.11;
+      if(rng()<prob){
+        const prod=PRODUCTS[Math.floor(rng()*PRODUCTS.length)];
+        let qty=Math.max(1,Math.round(rNorm(rng,c.baseAvg*.6,c.baseAvg*.25)));
+        const isTrueSpike=rng()<(spikeRate/100);
+        if(isTrueSpike)qty=Math.round(c.baseAvg*(3.5+rng()*4));
+        const d=new Date(start);d.setDate(d.getDate()+day);
+        orders.push({id:'SO'+(++id),date:d,customer:c,product:prod,qty,isTrueSpike,daysSinceLast:day-lastDay,isRush:rng()<.08,multiOrder:rng()<.05,action:null,note:''});
+        lastDay=day;
+      }
+    }
+  });
+  return orders.sort((a,b)=>a.date-b.date);
+}
+
+function generateLarge(seed){
+  // 1000+ orders over 30 days — stress test for "daily thousands" use case
+  const rng=seededRng(seed),orders=[],start=new Date('2024-12-01');
+  let id=2000;
+  const bigCusts=Array.from({length:40},(_,i)=>({id:'CX'+i,name:'Customer '+String(i+1).padStart(3,'0'),baseAvg:50+Math.round(rng()*800),baseSd:20+Math.round(rng()*100),segment:'Auto'}));
+  const bigProds=Array.from({length:12},(_,i)=>({id:'PX'+i,name:'Product '+String(i+1).padStart(2,'0'),forecast:200+Math.round(rng()*2000),inventory:1000+Math.round(rng()*9000),criticality:['Critical','High','Medium','Low'][Math.floor(rng()*4)]}));
+  bigCusts.forEach(c=>{
+    let lastDay=-30;
+    for(let day=0;day<30;day++){
+      const count=Math.floor(rng()*4);
+      for(let k=0;k<count;k++){
+        const prod=bigProds[Math.floor(rng()*bigProds.length)];
+        let qty=Math.max(1,Math.round(rNorm(rng,c.baseAvg*.6,c.baseAvg*.3)));
+        const isTrueSpike=rng()<.07;
+        if(isTrueSpike)qty=Math.round(c.baseAvg*(3+rng()*5));
+        const d=new Date(start);d.setDate(d.getDate()+day);
+        orders.push({id:'SO'+(++id),date:d,customer:c,product:prod,qty,isTrueSpike,daysSinceLast:day-lastDay,isRush:rng()<.06,multiOrder:rng()<.04,action:null,note:''});
+      }
+      lastDay=day;
+    }
+  });
+  return orders.sort((a,b)=>a.date-b.date);
+}
+
+// ══════════════════════════════════════════════════════
+// SCORING ENGINE
+// ══════════════════════════════════════════════════════
+function getWeights(){return{forecast:+document.getElementById('w-forecast').value,baseline:+document.getElementById('w-baseline').value,inventory:+document.getElementById('w-inventory').value,behavior:+document.getElementById('w-behavior').value,forecastTrigger:+document.getElementById('t-forecast').value,baselineTrigger:+parseFloat(document.getElementById('t-baseline').value),dormancyTrigger:+document.getElementById('t-dormancy').value}}
+function getThresholds(){return{review:+document.getElementById('s-review').value,high:+document.getElementById('s-high').value}}
+
+function scoreOrder(o,W,T){
+  const c=o.customer,p=o.product;
+  let score=0,reasons=[];
+  const fPct=(o.qty/p.forecast)*100;
+  if(fPct>W.forecastTrigger){const s=Math.min(W.forecast,Math.round((fPct-W.forecastTrigger)/200*W.forecast));score+=s;reasons.push({icon:'📊',text:`Order is ${Math.round(fPct)}% of monthly forecast (trigger: ${Math.round(W.forecastTrigger)}%) · +${s} pts`})}
+  const mult=o.qty/c.baseAvg;
+  let bScore=0;
+  if(mult>=5)bScore=W.baseline;else if(mult>=3)bScore=Math.round(W.baseline*.71);else if(mult>=2)bScore=Math.round(W.baseline*.43);else if(mult>=W.baselineTrigger)bScore=Math.round(W.baseline*.23);
+  if(bScore>0){score+=bScore;reasons.push({icon:'👤',text:`Order is ${mult.toFixed(1)}× customer's baseline avg (${c.baseAvg.toLocaleString()} units) · +${bScore} pts`})}
+  const iPct=(o.qty/p.inventory)*100;
+  let iScore=0;
+  if(iPct>=60)iScore=W.inventory;else if(iPct>=40)iScore=Math.round(W.inventory*.67);else if(iPct>=20)iScore=Math.round(W.inventory*.33);
+  if(iScore>0){score+=iScore;reasons.push({icon:'📦',text:`Consumes ${Math.round(iPct)}% of available inventory · +${iScore} pts`})}
+  if(o.daysSinceLast>W.dormancyTrigger){score+=W.behavior;reasons.push({icon:'😴',text:`Customer inactive for ${o.daysSinceLast} days before this order · +${W.behavior} pts`})}
+  if(o.isRush){score+=W.behavior;reasons.push({icon:'🚨',text:`Rush/expedited delivery requested · +${W.behavior} pts`})}
+  if(o.multiOrder){score+=W.behavior;reasons.push({icon:'🔄',text:`Multiple orders placed same day · +${W.behavior} pts`})}
+  const T2=getThresholds();
+  const tier=score>=T2.high?'HIGH RISK':score>=T2.review?'REVIEW':'SAFE';
+  return{score,tier,reasons,forecastPct:fPct,mult,invPct:iPct};
+}
+
+// ══════════════════════════════════════════════════════
+// DETECTION RUN
+// ══════════════════════════════════════════════════════
+function runDetection(silent){
+  if(!G.orders.length){if(!silent)showToast('No data loaded — using synthetic data');loadSynthetic();return}
+  const W=getWeights(),T=getThresholds();
+  G.orders.forEach(o=>{const r=scoreOrder(o,W,T);Object.assign(o,r)});
+  G.selectedId=null;
+  updateNav();
+  if(document.getElementById('page-triage').classList.contains('active'))renderQueue();
+  if(document.getElementById('page-overview').classList.contains('active'))renderOverview();
+  document.getElementById('runTimestamp').textContent='Last run: '+new Date().toLocaleTimeString();
+  if(!silent)showToast('Detection complete — '+G.orders.filter(o=>o.tier!=='SAFE').length+' orders flagged');
+}
+
+function loadSynthetic(){
+  G.orders=generateOrders(42,180,6);
+  document.getElementById('dataLabel').textContent='Synthetic · 180 days · 8 customers';
+  setStatusDot('green');
+  runDetection(true);
+  populateProductFilter();
+  navTo('triage');
+}
+function loadLargeTest(){
+  G.orders=generateLarge(99);
+  document.getElementById('dataLabel').textContent='Stress test · 30 days · 40 customers · '+G.orders.length+' orders';
+  setStatusDot('green');
+  runDetection(true);
+  populateProductFilter();
+  navTo('triage');
+  showToast('Loaded '+G.orders.length+' orders');
+}
+function setStatusDot(color){const d=document.getElementById('statusDot');d.style.background=color==='green'?'var(--green)':color==='amber'?'var(--amber)':'var(--text3)';d.style.boxShadow=color==='green'?'0 0 5px var(--green)':'none'}
+
+function populateProductFilter(){
+  const sel=document.getElementById('qProduct');
+  sel.innerHTML='<option value="all">All products</option>';
+  const prods=[...new Set(G.orders.map(o=>o.product.name))].sort();
+  prods.forEach(p=>{const opt=document.createElement('option');opt.value=p;opt.textContent=p;sel.appendChild(opt)});
+}
+
+// ══════════════════════════════════════════════════════
+// QUEUE RENDER
+// ══════════════════════════════════════════════════════
+function filterQueue(tier){
+  G.qFilter=tier;
+  document.querySelectorAll('.ct').forEach(el=>el.classList.remove('active'));
+  const map={'all':'ct-all','HIGH RISK':'ct-high','REVIEW':'ct-review','SAFE':'ct-safe','actioned':'ct-actioned'};
+  document.querySelector('.'+map[tier])?.classList.add('active');
+  renderQueue();
+}
+function setSortBy(by){G.sortBy=by;document.getElementById('qSortBy').value=by;renderQueue()}
+
+function renderQueue(){
+  G.qSearch=document.getElementById('qSearch').value.toLowerCase();
+  G.sortBy=document.getElementById('qSortBy').value;
+  G.productFilter=document.getElementById('qProduct').value;
+  const T=getThresholds();
+  let data=G.orders.filter(o=>{
+    if(G.qFilter==='actioned')return G.actioned[o.id];
+    if(G.qFilter==='SAFE')return o.tier==='SAFE';
+    if(G.qFilter==='all')return o.tier!=='SAFE'&&!G.actioned[o.id];
+    return o.tier===G.qFilter&&!G.actioned[o.id];
+  });
+  if(G.qSearch)data=data.filter(o=>o.customer.name.toLowerCase().includes(G.qSearch)||o.product.name.toLowerCase().includes(G.qSearch)||o.id.toLowerCase().includes(G.qSearch));
+  if(G.productFilter!=='all')data=data.filter(o=>o.product.name===G.productFilter);
+  const sortFns={score:(a,b)=>b.score-a.score,qty:(a,b)=>b.qty-a.qty,mult:(a,b)=>b.mult-a.mult,date:(a,b)=>b.date-a.date,customer:(a,b)=>a.customer.name.localeCompare(b.customer.name)};
+  data.sort(sortFns[G.sortBy]||sortFns.score);
+
+  // update count tabs
+  const all=G.orders.filter(o=>o.tier!=='SAFE'&&!G.actioned[o.id]);
+  document.getElementById('ct-all').textContent=all.length;
+  document.getElementById('ct-high').textContent=G.orders.filter(o=>o.tier==='HIGH RISK'&&!G.actioned[o.id]).length;
+  document.getElementById('ct-review').textContent=G.orders.filter(o=>o.tier==='REVIEW'&&!G.actioned[o.id]).length;
+  document.getElementById('ct-safe').textContent=G.orders.filter(o=>o.tier==='SAFE').length;
+  document.getElementById('ct-actioned').textContent=Object.keys(G.actioned).length;
+  const badge=document.getElementById('qBadge');
+  badge.textContent=all.filter(o=>o.tier==='HIGH RISK').length;
+  badge.style.display=all.filter(o=>o.tier==='HIGH RISK').length?'flex':'none';
+
+  const scroll=document.getElementById('queueScroll');
+  if(!data.length){scroll.innerHTML='<div style="padding:40px;text-align:center;color:var(--text3);font-size:12px">No orders match current filter</div>';document.getElementById('queueFooter').textContent='';return}
+
+  const rows=data.slice(0,500).map(o=>{
+    const isSelected=o.id===G.selectedId;
+    const isActioned=!!G.actioned[o.id];
+    const barColor=o.score>=61?'var(--red)':o.score>=31?'var(--amber)':'var(--green)';
+    const barW=Math.min(100,o.score);
+    const multColor=o.mult>=5?'q-num-red':o.mult>=3?'q-num-amber':'q-num';
+    const tierChip=o.tier==='HIGH RISK'?'<span class="chip chip-red">Hold</span>':o.tier==='REVIEW'?'<span class="chip chip-amber">Review</span>':'<span class="chip chip-green">Safe</span>';
+    const actionedChip=isActioned?'<span class="chip chip-blue">Done</span>':'';
+    return `<div class="q-row${isSelected?' selected':''}${isActioned?' actioned':''}" onclick="selectOrder('${o.id}')">
+      <div class="q-priority" style="background:${barColor}"></div>
+      <div class="q-customer">
+        <div class="q-customer-name">${o.customer.name}</div>
+        <div class="q-customer-prod">${o.product.name} · ${o.date.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>
+      </div>
+      <div class="q-num" style="text-align:right">${o.qty.toLocaleString()}</div>
+      <div class="q-num ${multColor}" style="text-align:right">${o.mult.toFixed(1)}×</div>
+      <div class="q-num" style="text-align:right">${Math.round(o.forecastPct)}%</div>
+      <div class="score-mini"><div class="score-track"><div class="score-fill" style="width:${barW}%;background:${barColor}"></div></div><span class="score-val">${o.score}</span></div>
+      <div style="text-align:right">${isActioned?actionedChip:tierChip}</div>
+    </div>`;
+  }).join('');
+  scroll.innerHTML=rows;
+  document.getElementById('queueFooter').textContent=`Showing ${Math.min(500,data.length)} of ${data.length} orders${data.length>500?' — use search to narrow':''}`; 
+  // restore scroll to selected
+  updateNav();
+}
+
+function selectOrder(id){
+  G.selectedId=id;
+  renderQueue();
+  renderDetail(id);
+}
+
+function renderDetail(id){
+  const o=G.orders.find(o=>o.id===id);
+  if(!o)return;
+  const dp=document.getElementById('dpContent');
+  const empty=document.getElementById('dpEmpty');
+  empty.style.display='none';
+  dp.style.display='flex';
+  const isActioned=!!G.actioned[id];
+  const barColor=o.score>=61?'var(--red)':o.score>=31?'var(--amber)':'var(--green)';
+  dp.innerHTML=`
+    <div class="dp-header">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:13px;font-weight:600">${o.customer.name}</div>
+          <div style="font-size:11px;color:var(--text3)">${o.id} · ${o.date.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'})}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:22px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${barColor}">${o.score}</div>
+          <div style="font-size:10px;color:var(--text3)">risk score</div>
+        </div>
+      </div>
+      <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+        ${o.tier==='HIGH RISK'?'<span class="chip chip-red">Hold shipment</span>':''}
+        ${o.tier==='REVIEW'?'<span class="chip chip-amber">Needs review</span>':''}
+        ${o.isRush?'<span class="chip chip-red">Rush delivery</span>':''}
+        ${o.daysSinceLast>45?'<span class="chip chip-amber">Dormant customer</span>':''}
+        ${isActioned?'<span class="chip chip-blue">Actioned</span>':''}
+      </div>
+    </div>
+
+    <div class="dp-section">
+      <div class="dp-label">Order details</div>
+      <div class="dp-stat-row">
+        <div class="dp-stat"><div class="dp-stat-val" style="color:${barColor}">${o.qty.toLocaleString()}</div><div class="dp-stat-label">Units ordered</div></div>
+        <div class="dp-stat"><div class="dp-stat-val">${o.customer.baseAvg.toLocaleString()}</div><div class="dp-stat-label">Customer avg / mo</div></div>
+        <div class="dp-stat"><div class="dp-stat-val" style="color:${o.mult>=3?'var(--red)':o.mult>=2?'var(--amber)':'var(--text)'}">${o.mult.toFixed(1)}×</div><div class="dp-stat-label">Vs. baseline</div></div>
+        <div class="dp-stat"><div class="dp-stat-val" style="color:${o.forecastPct>200?'var(--red)':'var(--text)'}">${Math.round(o.forecastPct)}%</div><div class="dp-stat-label">Of monthly forecast</div></div>
+      </div>
+      <div style="background:var(--bg3);border-radius:var(--r);padding:8px 10px;font-size:11px;color:var(--text2)">
+        <span style="font-weight:500">Product:</span> ${o.product.name} &nbsp;·&nbsp; <span style="font-weight:500">Criticality:</span> ${o.product.criticality} &nbsp;·&nbsp; <span style="font-weight:500">Stock on hand:</span> ${o.product.inventory.toLocaleString()} &nbsp;·&nbsp; <span style="font-weight:500">Inv. consumed:</span> ${Math.round(o.invPct)}%
+      </div>
+    </div>
+
+    <div class="dp-section" style="flex:1">
+      <div class="dp-label">Why this was flagged</div>
+      ${o.reasons.map(r=>`<div class="reason-item"><span class="reason-icon">${r.icon}</span><span>${r.text}</span></div>`).join('')}
+      ${o.reasons.length===0?'<div style="font-size:11px;color:var(--text3)">No rules triggered — order is within normal range</div>':''}
+    </div>
+
+    <div class="action-row">
+      <div class="action-label">Take action</div>
+      <div class="action-btns">
+        <button class="btn btn-sm btn-red" onclick="actionOrder('${id}','hold')">🔴 Hold</button>
+        <button class="btn btn-sm" onclick="actionOrder('${id}','approve')" style="border-color:rgba(16,185,129,.3);color:var(--green)">✓ Approve</button>
+        <button class="btn btn-sm" onclick="actionOrder('${id}','escalate')" style="border-color:rgba(245,158,11,.3);color:var(--amber)">↑ Escalate</button>
+      </div>
+      <textarea class="action-note" id="note-${id}" placeholder="Add note (optional — e.g. 'Confirmed with sales rep, legitimate bulk buy for Q1 project')">${G.actionNotes[id]||''}</textarea>
+      <button class="btn btn-sm btn-primary" onclick="saveNote('${id}')">Save note</button>
+    </div>
+  `;
+}
+
+function actionOrder(id,action){
+  G.actioned[id]=action;
+  const note=document.getElementById('note-'+id)?.value||'';
+  G.actionNotes[id]=note;
+  const labels={hold:'Held — shipment blocked',approve:'Approved — cleared for shipment',escalate:'Escalated to management'};
+  showToast(labels[action]);
+  renderQueue();
+  // advance to next unactioned order
+  const remaining=G.orders.filter(o=>o.tier!=='SAFE'&&!G.actioned[o.id]&&o.id!==id);
+  if(remaining.length){selectOrder(remaining[0].id)}else{document.getElementById('dpContent').style.display='none';document.getElementById('dpEmpty').style.display='flex'}
+}
+function saveNote(id){G.actionNotes[id]=document.getElementById('note-'+id)?.value||'';showToast('Note saved')}
+
+function updateNav(){
+  const flagged=G.orders.filter(o=>o.tier==='HIGH RISK'&&!G.actioned[o.id]).length;
+  const badge=document.getElementById('qBadge');
+  badge.textContent=flagged;
+  badge.style.display=flagged?'flex':'none';
+}
+
+// ══════════════════════════════════════════════════════
+// OVERVIEW CHARTS
+// ══════════════════════════════════════════════════════
+function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id]}}
+const chartDefaults={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{color:'#4b5675',font:{size:10}}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#4b5675',font:{size:10}}}}};
+
+function renderOverview(){
+  const orders=G.orders;
+  if(!orders.length)return;
+  const high=orders.filter(o=>o.tier==='HIGH RISK'),review=orders.filter(o=>o.tier==='REVIEW'),safe=orders.filter(o=>o.tier==='SAFE');
+  const trueSpikes=orders.filter(o=>o.isTrueSpike),caught=orders.filter(o=>o.isTrueSpike&&o.tier!=='SAFE');
+  const flagged=[...high,...review];
+
+  // KPIs
+  document.getElementById('k-high').textContent=high.length;
+  document.getElementById('k-review').textContent=review.length;
+  document.getElementById('k-total').textContent=orders.length.toLocaleString();
+  document.getElementById('k-safe-pct').textContent=Math.round(safe.length/orders.length*100)+'% safe';
+  document.getElementById('k-recall').textContent=trueSpikes.length?Math.round(caught.length/trueSpikes.length*100)+'%':'—';
+  document.getElementById('k-rate').textContent=Math.round(flagged.length/orders.length*100)+'%';
+  document.getElementById('overviewSub').textContent=`${orders.length.toLocaleString()} orders scanned · ${orders[0].date.toLocaleDateString()} – ${orders[orders.length-1].date.toLocaleDateString()}`;
+
+  // Monthly
+  const months={};
+  orders.forEach(o=>{const k=o.date.toISOString().slice(0,7);if(!months[k])months[k]={t:0,r:0,h:0};months[k].t++;if(o.tier==='REVIEW')months[k].r++;if(o.tier==='HIGH RISK')months[k].h++});
+  const mK=Object.keys(months).sort();
+  const mL=mK.map(k=>{const d=new Date(k+'-01');return d.toLocaleString('default',{month:'short',year:'2-digit'})});
+  destroyChart('monthly');
+  charts['monthly']=new Chart(document.getElementById('monthlyChart'),{type:'bar',data:{labels:mL,datasets:[{data:mK.map(k=>months[k].t),backgroundColor:'rgba(255,255,255,0.05)',borderRadius:3,yAxisID:'y',order:3},{data:mK.map(k=>months[k].r),backgroundColor:'#f59e0b',borderRadius:3,yAxisID:'y2',order:1},{data:mK.map(k=>months[k].h),backgroundColor:'#ef4444',borderRadius:3,yAxisID:'y2',order:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{color:'#4b5675',font:{size:10}}},y:{position:'left',grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#2a3347',font:{size:9}}},y2:{position:'right',grid:{display:false},ticks:{color:'#4b5675',font:{size:9}},min:0}}}});
+
+  // Score dist — flagged only
+  const bands=[{l:'31–40',min:31,max:40,c:'#b45309'},{l:'41–50',min:41,max:50,c:'#d97706'},{l:'51–60',min:51,max:60,c:'#ea580c'},{l:'61–70',min:61,max:70,c:'#dc2626'},{l:'71–80',min:71,max:80,c:'#b91c1c'},{l:'81+',min:81,max:999,c:'#991b1b'}];
+  destroyChart('dist');
+  charts['dist']=new Chart(document.getElementById('distChart'),{type:'bar',data:{labels:bands.map(b=>b.l),datasets:[{data:bands.map(b=>flagged.filter(o=>o.score>=b.min&&o.score<=b.max).length),backgroundColor:bands.map(b=>b.c),borderRadius:4,borderWidth:0}]},options:{...chartDefaults}});
+
+  // Customer chart
+  const cH={},cR={};
+  high.forEach(o=>{cH[o.customer.name]=(cH[o.customer.name]||0)+1});
+  review.forEach(o=>{cR[o.customer.name]=(cR[o.customer.name]||0)+1});
+  const custs=[...new Set(flagged.map(o=>o.customer.name))].sort((a,b)=>((cH[b]||0)+(cR[b]||0))-((cH[a]||0)+(cR[a]||0))).slice(0,7);
+  destroyChart('cust');
+  charts['cust']=new Chart(document.getElementById('custChart'),{type:'bar',data:{labels:custs.map(c=>c.split(' ')[0]),datasets:[{data:custs.map(c=>cH[c]||0),backgroundColor:'#ef4444',borderRadius:3,stack:'s'},{data:custs.map(c=>cR[c]||0),backgroundColor:'#f59e0b',borderRadius:3,stack:'s'}]},options:{...chartDefaults,scales:{x:{grid:{display:false},ticks:{color:'#4b5675',font:{size:10}},stacked:true},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#4b5675',font:{size:10}},stacked:true}}}});
+
+  // P/R curve
+  const ts=[20,25,30,35,40,45,50,55,60,65,70];
+  const precArr=ts.map(t=>{const fl=orders.filter(o=>o.score>=t);const tp=fl.filter(o=>o.isTrueSpike).length;return fl.length?Math.round(tp/fl.length*100):100});
+  const recArr=ts.map(t=>trueSpikes.length?Math.round(orders.filter(o=>o.isTrueSpike&&o.score>=t).length/trueSpikes.length*100):0);
+  destroyChart('pr');
+  charts['pr']=new Chart(document.getElementById('prChart'),{type:'line',data:{labels:ts.map(t=>'≥'+t),datasets:[{data:precArr,borderColor:'#818cf8',borderWidth:2,pointRadius:2,tension:.3,fill:false},{data:recArr,borderColor:'#10b981',borderWidth:2,pointRadius:2,tension:.3,borderDash:[4,3],fill:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{color:'#4b5675',font:{size:9}}},y:{min:0,max:100,ticks:{callback:v=>v+'%',color:'#4b5675',font:{size:9}},grid:{color:'rgba(255,255,255,0.04)'}}}}});
+
+  // Product risk
+  const pS={};
+  flagged.forEach(o=>{if(!pS[o.product.id])pS[o.product.id]={p:o.product,h:0,r:0};o.tier==='HIGH RISK'?pS[o.product.id].h++:pS[o.product.id].r++});
+  const cMap={Critical:'var(--red)',High:'var(--amber)',Medium:'var(--blue)',Low:'var(--green)'};
+  const prods=Object.values(pS).sort((a,b)=>(b.h+b.r)-(a.h+a.r));
+  // fill in products with no flags too
+  const allProds=[...new Set(G.orders.map(o=>o.product))].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
+  document.getElementById('prodRisk').innerHTML=allProds.map(p=>{const s=pS[p.id]||{h:0,r:0};const total=s.h+s.r;return`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)"><div style="width:3px;height:26px;background:${cMap[p.criticality]};border-radius:2px;flex-shrink:0"></div><div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name}</div><div style="height:3px;background:var(--bg3);border-radius:2px;margin-top:4px;overflow:hidden"><div style="width:${Math.min(100,total*15)}%;height:100%;background:${s.h>0?'var(--red)':'var(--amber)'};border-radius:2px"></div></div></div><div style="font-size:10px;text-align:right;flex-shrink:0">${s.h>0?`<span style="color:var(--red);font-weight:700">${s.h}H</span> `:''}${s.r>0?`<span style="color:var(--amber)">${s.r}R</span>`:''}${total===0?`<span style="color:var(--text3)">—</span>`:''}</div></div>`}).join('');
+
+  // Insights
+  const recall2=trueSpikes.length?Math.round(caught.length/trueSpikes.length*100):0;
+  const precision=flagged.length?Math.round(caught.length/flagged.length*100):0;
+  const topCustName=custs[0]||'—';
+  document.getElementById('insightContent').innerHTML=`
+    <div class="insight"><span class="insight-icon">🎯</span><div class="insight-text"><strong>Detection performance:</strong> Engine caught <strong>${recall2}% of true spikes</strong> at <strong>${precision}% precision</strong>. ${100-precision}% of flagged orders are false positives — legitimate large orders. Calibrate customer-specific thresholds in Settings to reduce noise.</div></div>
+    <div class="insight"><span class="insight-icon">⚠️</span><div class="insight-text"><strong>Highest-risk customer: ${topCustName}</strong> — generated the most flags. Check if this reflects legitimate growth (adjust baseline) or a recurring anomaly (add to watchlist).</div></div>
+    <div class="insight"><span class="insight-icon">💡</span><div class="insight-text"><strong>Operational recommendation:</strong> Use the Triage Queue (first tab) as your daily morning check. Work through High Risk orders first, use the detail panel to investigate each one, then action as Hold / Approve / Escalate before 10 AM when warehouse picks begin.</div></div>
+  `;
+}
+
+// ══════════════════════════════════════════════════════
+// FILE UPLOAD
+// ══════════════════════════════════════════════════════
+function handleDrop(e){e.preventDefault();document.getElementById('dropZone').classList.remove('drag');const f=e.dataTransfer.files[0];if(f)processFile(f)}
+function handleFile(e){const f=e.target.files[0];if(f)processFile(f)}
+function processFile(f){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const lines=e.target.result.trim().split('\n');
+      const headers=lines[0].toLowerCase().split(',').map(h=>h.trim().replace(/"/g,''));
+      const req=['order_date','customer_id','product_id','order_qty','monthly_forecast'];
+      const missing=req.filter(r=>!headers.includes(r));
+      if(missing.length){showUploadErr('Missing required columns: '+missing.join(', '));return}
+      const rows=lines.slice(1).map(l=>{const vals=l.split(',').map(v=>v.trim().replace(/"/g,''));const obj={};headers.forEach((h,i)=>obj[h]=vals[i]);return obj}).filter(r=>r.order_qty&&!isNaN(r.order_qty));
+      // Build customer baselines from history
+      const custHistory={};
+      rows.forEach(r=>{if(!custHistory[r.customer_id])custHistory[r.customer_id]=[];custHistory[r.customer_id].push(+r.order_qty)});
+      G.orders=rows.map(r=>{
+        const hist=custHistory[r.customer_id]||[+r.order_qty];
+        const avg=hist.reduce((a,b)=>a+b,0)/hist.length;
+        const c={id:r.customer_id,name:r.customer_name||r.customer_id,baseAvg:Math.round(avg),baseSd:Math.round(avg*.2),segment:'Uploaded'};
+        const p={id:r.product_id,name:r.product_name||r.product_id,forecast:+r.monthly_forecast||1000,inventory:+r.available_inventory||5000,criticality:'Unknown'};
+        return{id:'UP'+Math.random().toString(36).slice(2,7),date:new Date(r.order_date),customer:c,product:p,qty:+r.order_qty,isTrueSpike:false,daysSinceLast:30,isRush:r.is_rush==='1',multiOrder:false,action:null,note:''};
+      });
+      document.getElementById('dataLabel').textContent=f.name+' · '+G.orders.length+' orders';
+      setStatusDot('green');
+      runDetection(true);populateProductFilter();
+      document.getElementById('uploadResult').style.display='block';
+      document.getElementById('uploadResult').innerHTML=`<div class="card" style="border-color:rgba(16,185,129,.3)"><div style="font-size:13px;font-weight:500;color:var(--green);margin-bottom:6px">✓ Loaded ${G.orders.length} orders from ${f.name}</div><div style="font-size:11px;color:var(--text2)">Baselines auto-calculated from your history · run detection to score all orders</div><div style="margin-top:10px"><button class="btn btn-sm btn-primary" onclick="navTo('triage')">Go to triage queue →</button></div></div>`;
+      showToast('Loaded '+G.orders.length+' orders');
+    }catch(err){showUploadErr(err.message)}
+  };
+  reader.readAsText(f);
+}
+function showUploadErr(msg){document.getElementById('uploadResult').style.display='block';document.getElementById('uploadResult').innerHTML=`<div class="card" style="border-color:rgba(239,68,68,.3)"><div style="color:var(--red);font-size:13px;font-weight:500">Upload failed</div><div style="font-size:12px;color:var(--text2);margin-top:4px">${msg}</div></div>`}
+function downloadTemplate(){const csv='order_date,customer_id,customer_name,product_id,product_name,order_qty,monthly_forecast,available_inventory,is_rush\n2024-12-01,C001,ABC Electric,P001,Copper Cable X1,450,2000,8000,0\n2024-12-02,C002,Delta Supply,P002,Industrial Wire Z2,1200,1500,5000,1\n';const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='sap_bookings_template.csv';a.click();showToast('Template downloaded')}
+
+// ══════════════════════════════════════════════════════
+// EXPORT / SEND ALERTS
+// ══════════════════════════════════════════════════════
+function exportQueue(){
+  const flagged=G.orders.filter(o=>o.tier!=='SAFE').sort((a,b)=>b.score-a.score);
+  const header='Order ID,Date,Customer,Product,Qty,Baseline Avg,× Baseline,Forecast %,Risk Score,Tier,Actioned,Note';
+  const rows=flagged.map(o=>`${o.id},${o.date.toISOString().slice(0,10)},${o.customer.name},${o.product.name},${o.qty},${o.customer.baseAvg},${o.mult.toFixed(2)},${Math.round(o.forecastPct)},${o.score},${o.tier},${G.actioned[o.id]||''},${(G.actionNotes[o.id]||'').replace(/,/g,';')}`);
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent([header,...rows].join('\n'));a.download='spikeguard_queue_'+new Date().toISOString().slice(0,10)+'.csv';a.click();showToast('Queue exported');
+}
+function sendAlertsNow(){
+  const high=G.orders.filter(o=>o.tier==='HIGH RISK'&&!G.actioned[o.id]);
+  if(!high.length){showToast('No unactioned high-risk orders to alert');return}
+  const recipients=stakeholders.filter(s=>s.tier==='all'||s.tier==='high');
+  const entry={time:new Date().toLocaleTimeString(),type:'Immediate alert',recipients:recipients.map(s=>s.name),count:high.length};
+  sendLog.unshift(entry);
+  renderSendLog();
+  navTo('email');generatePreview();
+  showToast('Alert sent to '+recipients.length+' stakeholders ('+high.length+' orders)');
+}
+
+// ══════════════════════════════════════════════════════
+// EMAIL SYSTEM
+// ══════════════════════════════════════════════════════
+function renderStakeholders(){
+  const el=document.getElementById('shList');if(!el)return;
+  const tierCol={all:'var(--blue)',high:'var(--red)',digest:'var(--amber)',weekly:'var(--green)'};
+  const tierLabel={all:'All alerts',high:'High risk only',digest:'Digest+weekly',weekly:'Weekly only'};
+  el.innerHTML=stakeholders.map(s=>`<div class="sh-item"><div class="sh-avatar">${s.name.split(' ').map(n=>n[0]).join('')}</div><div class="sh-info"><div class="sh-name">${s.name}</div><div class="sh-role">${s.role} · ${s.email}</div></div><span style="font-size:10px;font-weight:600;color:${tierCol[s.tier]};white-space:nowrap">${tierLabel[s.tier]}</span><button class="btn btn-ghost btn-xs" onclick="removeStakeholder(${s.id})" style="color:var(--text3);padding:2px 6px">×</button></div>`).join('')||'<div style="font-size:11px;color:var(--text3);padding:8px 0">No stakeholders added.</div>';
+}
+function openModal(){document.getElementById('shModal').classList.add('open')}
+function closeModal(){document.getElementById('shModal').classList.remove('open')}
+function addStakeholder(){
+  const name=document.getElementById('sh-name').value.trim(),email=document.getElementById('sh-email').value.trim();
+  if(!name||!email){showToast('Enter name and email');return}
+  stakeholders.push({id:shIdN++,name,email,role:document.getElementById('sh-role').value,tier:document.getElementById('sh-tier').value});
+  closeModal();document.getElementById('sh-name').value='';document.getElementById('sh-email').value='';
+  renderStakeholders();showToast('Added '+name);
+}
+function removeStakeholder(id){stakeholders=stakeholders.filter(s=>s.id!==id);renderStakeholders();showToast('Removed')}
+
+function buildEmail(type){
+  const orders=G.orders;
+  const high=orders.filter(o=>o.tier==='HIGH RISK').sort((a,b)=>b.score-a.score);
+  const review=orders.filter(o=>o.tier==='REVIEW');
+  const flagged=[...high,...review];
+  const now=new Date().toLocaleString('en-US',{dateStyle:'full',timeStyle:'short'});
+  const dateShort=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  if(type==='immediate'){
+    if(!high.length)return null;
+    const top=high[0];
+    const rows=high.slice(0,6).map(o=>`<tr><td style="padding:9px 12px;border-bottom:1px solid #e8eaed;font-size:13px;color:#111;font-weight:500">${o.customer.name}</td><td style="padding:9px 12px;border-bottom:1px solid #e8eaed;font-size:13px;color:#555">${o.product.name}</td><td style="padding:9px 12px;border-bottom:1px solid #e8eaed;font-size:13px;text-align:right;font-family:monospace">${o.qty.toLocaleString()}</td><td style="padding:9px 12px;border-bottom:1px solid #e8eaed;font-size:13px;text-align:right;color:#b91c1c;font-weight:700">${o.mult.toFixed(1)}×</td><td style="padding:9px 12px;border-bottom:1px solid #e8eaed;text-align:right;font-size:13px">${Math.round(o.forecastPct)}%</td><td style="padding:9px 12px;border-bottom:1px solid #e8eaed;text-align:center"><span style="background:#fef2f2;color:#b91c1c;font-size:11px;font-weight:700;padding:3px 8px;border-radius:10px">${o.score}</span></td></tr>`).join('');
+    const reasons=top.reasons.map(r=>`<li style="margin-bottom:5px;color:#444;font-size:13px">${r.text}</li>`).join('');
+    const subject=`[ACTION REQUIRED] Spike alert — ${high.length} high-risk order${high.length>1?'s':''} · ${dateShort}`;
+    const html=`<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif"><table width="100%" cellpadding="0" cellspacing="0" style="padding:28px 0;background:#f3f4f6"><tr><td align="center"><table width="580" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.1)"><tr><td style="background:#b91c1c;padding:18px 24px"><table width="100%" cellpadding="0" cellspacing="0"><tr><td><span style="color:rgba(255,255,255,.7);font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase">⚡ SpikeGuard Early Warning</span></td><td align="right"><span style="background:rgba(255,255,255,.2);color:#fff;font-size:10px;font-weight:700;padding:2px 9px;border-radius:10px">🔴 HIGH RISK</span></td></tr></table><div style="color:#fff;font-size:19px;font-weight:700;margin-top:8px;letter-spacing:-.2px">${high.length} order${high.length>1?'s':''} flagged — review before warehouse releases shipment</div><div style="color:rgba(255,255,255,.65);font-size:11px;margin-top:4px">${now}</div></td></tr><tr><td style="background:#fffbeb;padding:10px 24px;border-bottom:2px solid #f59e0b"><span style="font-size:12px;color:#78350f"><strong>Action required:</strong> Review the orders below and approve, hold, or escalate before shipment release.</span></td></tr><tr><td style="padding:18px 24px 0"><table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e8eaed;border-radius:6px;overflow:hidden"><thead><tr style="background:#f9fafb"><th style="padding:8px 12px;text-align:left;font-size:10px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:.4px">Customer</th><th style="padding:8px 12px;text-align:left;font-size:10px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:.4px">Product</th><th style="padding:8px 12px;text-align:right;font-size:10px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:.4px">Qty</th><th style="padding:8px 12px;text-align:right;font-size:10px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:.4px">× Baseline</th><th style="padding:8px 12px;text-align:right;font-size:10px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:.4px">Forecast %</th><th style="padding:8px 12px;text-align:center;font-size:10px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:.4px">Score</th></tr></thead><tbody>${rows}</tbody></table></td></tr><tr><td style="padding:16px 24px"><div style="background:#fef2f2;border:1px solid #fecaca;border-left:3px solid #b91c1c;border-radius:6px;padding:12px 14px"><div style="font-size:11px;font-weight:700;color:#b91c1c;text-transform:uppercase;letter-spacing:.4px;margin-bottom:7px">Why ${top.customer.name} was flagged (score ${top.score})</div><ul style="margin:0;padding-left:16px">${reasons}</ul></div></td></tr><tr><td style="padding:0 24px 18px"><div style="font-size:11px;font-weight:700;color:#111;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Recommended actions</div><div style="font-size:12px;color:#444;line-height:1.8">1. &nbsp;Contact account manager to verify demand legitimacy<br>2. &nbsp;Check available inventory before releasing shipment<br>3. &nbsp;If approved, update demand forecast accordingly<br>4. &nbsp;If suspicious, escalate to supply chain director</div></td></tr><tr><td style="background:#f9fafb;border-top:1px solid #e8eaed;padding:12px 24px"><table width="100%" cellpadding="0" cellspacing="0"><tr><td style="font-size:10px;color:#aaa">SpikeGuard Automated Alert · Do not reply</td><td align="right" style="font-size:10px;color:#aaa">View dashboard →</td></tr></table></td></tr></table></td></tr></table></body></html>`;
+    return{subject,html};
+  }
+  if(type==='daily'){
+    const safe=orders.filter(o=>o.tier==='SAFE');
+    const topRows=flagged.slice(0,8).map(o=>{const bg=o.tier==='HIGH RISK'?'#fef2f2':'#fffbeb';const col=o.tier==='HIGH RISK'?'#b91c1c':'#78350f';return`<tr><td style="padding:8px 12px;border-bottom:1px solid #e8eaed;font-size:12px;color:#111;font-weight:500">${o.customer.name}</td><td style="padding:8px 12px;border-bottom:1px solid #e8eaed;font-size:12px;color:#555">${o.product.name}</td><td style="padding:8px 12px;border-bottom:1px solid #e8eaed;font-size:12px;text-align:right;font-family:monospace">${o.qty.toLocaleString()}</td><td style="padding:8px 12px;border-bottom:1px solid #e8eaed;font-size:12px;text-align:right;color:#d97706;font-weight:600">${o.mult.toFixed(1)}×</td><td style="padding:8px 12px;border-bottom:1px solid #e8eaed;text-align:center"><span style="background:${bg};color:${col};font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">${o.tier==='HIGH RISK'?'Hold':'Review'}</span></td></tr>`}).join('');
+    const subject=`[Daily digest] SpikeGuard — ${high.length} hold, ${review.length} review · ${dateShort}`;
+    const html=`<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif"><table width="100%" cellpadding="0" cellspacing="0" style="padding:28px 0;background:#f3f4f6"><tr><td align="center"><table width="580" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.1)"><tr><td style="background:#1e293b;padding:18px 24px"><span style="color:rgba(255,255,255,.5);font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase">⚡ SpikeGuard · Daily Digest</span><div style="color:#fff;font-size:18px;font-weight:700;margin-top:6px">Daily spike detection summary — ${dateShort}</div></td></tr><tr><td style="padding:18px 24px;border-bottom:1px solid #e8eaed"><table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:0 8px"><div style="font-size:28px;font-weight:700;color:#b91c1c;font-family:monospace">${high.length}</div><div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-top:2px">Hold</div></td><td align="center" style="padding:0 8px;border-left:1px solid #e8eaed"><div style="font-size:28px;font-weight:700;color:#d97706;font-family:monospace">${review.length}</div><div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-top:2px">Review</div></td><td align="center" style="padding:0 8px;border-left:1px solid #e8eaed"><div style="font-size:28px;font-weight:700;color:#059669;font-family:monospace">${safe.length}</div><div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-top:2px">Safe</div></td><td align="center" style="padding:0 8px;border-left:1px solid #e8eaed"><div style="font-size:28px;font-weight:700;color:#111;font-family:monospace">${orders.length}</div><div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-top:2px">Scanned</div></td></tr></table></td></tr>${flagged.length?`<tr><td style="padding:18px 24px 0"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#555;margin-bottom:8px">Orders requiring attention (top ${Math.min(8,flagged.length)})</div><table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e8eaed;border-radius:6px;overflow:hidden"><thead><tr style="background:#f9fafb"><th style="padding:7px 12px;text-align:left;font-size:10px;color:#888;font-weight:700;text-transform:uppercase">Customer</th><th style="padding:7px 12px;text-align:left;font-size:10px;color:#888;font-weight:700;text-transform:uppercase">Product</th><th style="padding:7px 12px;text-align:right;font-size:10px;color:#888;font-weight:700;text-transform:uppercase">Qty</th><th style="padding:7px 12px;text-align:right;font-size:10px;color:#888;font-weight:700;text-transform:uppercase">× Base</th><th style="padding:7px 12px;text-align:center;font-size:10px;color:#888;font-weight:700;text-transform:uppercase">Status</th></tr></thead><tbody>${topRows}</tbody></table></td></tr>`:`<tr><td style="padding:18px 24px;color:#059669;font-size:13px">✅ No spike orders detected. All orders within normal parameters.</td></tr>`}<tr><td style="background:#f9fafb;border-top:1px solid #e8eaed;padding:12px 24px;margin-top:18px"><table width="100%" cellpadding="0" cellspacing="0"><tr><td style="font-size:10px;color:#aaa">SpikeGuard Daily Digest · Auto-generated</td><td align="right" style="font-size:10px;color:#aaa">View dashboard →</td></tr></table></td></tr></table></td></tr></table></body></html>`;
+    return{subject,html};
+  }
+  // weekly
+  const trueSpikes=orders.filter(o=>o.isTrueSpike),caught=orders.filter(o=>o.isTrueSpike&&o.tier!=='SAFE');
+  const recall=trueSpikes.length?Math.round(caught.length/trueSpikes.length*100):0;
+  const cH2={};flagged.forEach(o=>{cH2[o.customer.name]=(cH2[o.customer.name]||0)+1});
+  const topCusts=Object.entries(cH2).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([n,c])=>`<tr><td style="padding:7px 12px;border-bottom:1px solid #e8eaed;font-size:12px;color:#111">${n}</td><td style="padding:7px 12px;border-bottom:1px solid #e8eaed;font-size:12px;color:#555;text-align:right">${c} flags</td></tr>`).join('');
+  const subject=`[Weekly report] SpikeGuard supply chain risk summary · ${dateShort}`;
+  const html=`<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif"><table width="100%" cellpadding="0" cellspacing="0" style="padding:28px 0;background:#f3f4f6"><tr><td align="center"><table width="580" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.1)"><tr><td style="background:#0f172a;padding:20px 24px"><span style="color:rgba(255,255,255,.4);font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase">⚡ SpikeGuard · Weekly Summary</span><div style="color:#fff;font-size:19px;font-weight:700;margin-top:6px">Supply chain spike detection — weekly overview</div><div style="color:rgba(255,255,255,.45);font-size:11px;margin-top:3px">${orders.length.toLocaleString()} orders scanned this period</div></td></tr><tr><td style="padding:18px 24px;border-bottom:1px solid #e8eaed"><table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:0 6px"><div style="font-size:26px;font-weight:700;color:#059669;font-family:monospace">${recall}%</div><div style="font-size:10px;color:#888;text-transform:uppercase;margin-top:2px">Detection rate</div></td><td align="center" style="padding:0 6px;border-left:1px solid #e8eaed"><div style="font-size:26px;font-weight:700;color:#b91c1c;font-family:monospace">${high.length}</div><div style="font-size:10px;color:#888;text-transform:uppercase;margin-top:2px">High risk</div></td><td align="center" style="padding:0 6px;border-left:1px solid #e8eaed"><div style="font-size:26px;font-weight:700;color:#d97706;font-family:monospace">${review.length}</div><div style="font-size:10px;color:#888;text-transform:uppercase;margin-top:2px">Reviewed</div></td><td align="center" style="padding:0 6px;border-left:1px solid #e8eaed"><div style="font-size:26px;font-weight:700;color:#111;font-family:monospace">${orders.length.toLocaleString()}</div><div style="font-size:10px;color:#888;text-transform:uppercase;margin-top:2px">Scanned</div></td></tr></table></td></tr>${topCusts?`<tr><td style="padding:16px 24px;border-bottom:1px solid #e8eaed"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#555;margin-bottom:8px">Most-flagged customers</div><table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e8eaed;border-radius:6px;overflow:hidden"><tbody>${topCusts}</tbody></table></td></tr>`:''}<tr><td style="padding:16px 24px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#555;margin-bottom:8px">Key insights</div><div style="font-size:12px;color:#444;line-height:1.9">📦 &nbsp;Engine scanned <strong>${orders.length.toLocaleString()} orders</strong> · flagged <strong>${flagged.length}</strong> (${Math.round(flagged.length/orders.length*100)}% flag rate)<br>🎯 &nbsp;System recall: <strong>${recall}%</strong> of genuine spikes caught before shipment<br>📊 &nbsp;Review customer-specific thresholds to reduce false positives on large distributors</div></td></tr><tr><td style="background:#f9fafb;border-top:1px solid #e8eaed;padding:12px 24px"><table width="100%" cellpadding="0" cellspacing="0"><tr><td style="font-size:10px;color:#aaa">SpikeGuard Weekly Report · Every Monday 8 AM</td><td align="right" style="font-size:10px;color:#aaa">View dashboard →</td></tr></table></td></tr></table></td></tr></table></body></html>`;
+  return{subject,html};
+}
+
+function generatePreview(){
+  if(!G.orders.length){showToast('Load data first');return}
+  const type=document.getElementById('emailType').value;
+  const email=buildEmail(type);
+  if(!email){showToast('No high-risk orders found for this alert type');return}
+  currentEmailHtml=email.html;currentEmailSubject=email.subject;
+  const recipients=stakeholders.filter(s=>type==='immediate'?s.tier==='all'||s.tier==='high':type==='daily'?s.tier==='all'||s.tier==='digest':true);
+  document.getElementById('previewLabel').textContent=`${email.subject.slice(0,60)}… · ${recipients.length} recipient${recipients.length!==1?'s':''}`;
+  document.getElementById('emailFrame').innerHTML=`<iframe srcdoc="${email.html.replace(/"/g,'&quot;')}" style="width:100%;height:100%;border:none" title="Email preview"></iframe>`;
+}
+function simulateSend(){
+  if(!currentEmailHtml){showToast('Preview first');return}
+  const type=document.getElementById('emailType').value;
+  const labels={immediate:'Immediate alert',daily:'Daily digest',weekly:'Weekly summary'};
+  const recipients=stakeholders.filter(s=>type==='immediate'?s.tier==='all'||s.tier==='high':type==='daily'?s.tier==='all'||s.tier==='digest':true);
+  sendLog.unshift({time:new Date().toLocaleTimeString(),type:labels[type],to:recipients.map(s=>s.name),subject:currentEmailSubject});
+  renderSendLog();
+  document.getElementById('dispatchMsg').style.display='block';
+  document.getElementById('dispatchMsg').textContent=`✓ Simulated send to ${recipients.length} recipient${recipients.length!==1?'s':''}: ${recipients.map(s=>s.name).join(', ')}`;
+  setTimeout(()=>document.getElementById('dispatchMsg').style.display='none',4000);
+  showToast(`Sent to ${recipients.length} stakeholders`);
+}
+function renderSendLog(){
+  const el=document.getElementById('sendLog');if(!el)return;
+  if(!sendLog.length){el.textContent='No sends yet.';return}
+  el.innerHTML=sendLog.slice(0,8).map(e=>`<div class="send-log-item"><div class="send-log-time">${e.time}</div><div style="flex:1"><div style="font-weight:500;color:var(--text)">${e.type}</div><div style="color:var(--text3);margin-top:1px">${e.to.join(', ')}</div></div><span class="chip chip-green" style="flex-shrink:0">Sent</span></div>`).join('');
+}
+function clearLog(){sendLog=[];renderSendLog();showToast('Log cleared')}
+function copyEmail(){if(!currentEmailHtml){showToast('Preview first');return}navigator.clipboard.writeText(currentEmailHtml).then(()=>showToast('HTML copied')).catch(()=>showToast('Copy failed — use Download instead'))}
+function downloadEmail(){if(!currentEmailHtml){showToast('Preview first');return}const a=document.createElement('a');a.href='data:text/html;charset=utf-8,'+encodeURIComponent(currentEmailHtml);a.download='spikeguard_alert.html';a.click()}
+
+// ══════════════════════════════════════════════════════
+// SETTINGS
+// ══════════════════════════════════════════════════════
+function resetSettings(){
+  const defs=[['w-forecast','40'],['w-baseline','35'],['w-inventory','15'],['w-behavior','5'],['t-forecast','50'],['t-baseline','1.5'],['t-dormancy','45'],['s-review','31'],['s-high','61']];
+  defs.forEach(([id,v])=>{document.getElementById(id).value=v});
+  document.getElementById('wv-forecast').textContent='40';document.getElementById('wv-baseline').textContent='35';
+  document.getElementById('wv-inventory').textContent='15';document.getElementById('wv-behavior').textContent='5';
+  document.getElementById('tv-forecast').textContent='50%';document.getElementById('tv-baseline').textContent='1.5×';
+  document.getElementById('tv-dormancy').textContent='45d';document.getElementById('sv-review').textContent='31';document.getElementById('sv-high').textContent='61';
+  showToast('Settings reset');
+}
+
+// ══════════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════════
+function navTo(page){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn[id^="nav-"]').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  const nb=document.getElementById('nav-'+page);if(nb)nb.classList.add('active');
+  if(page==='overview')renderOverview();
+  if(page==='triage')renderQueue();
+  if(page==='email'){renderStakeholders();renderSendLog()}
+  document.getElementById('mainScroll').scrollTop=0;
+}
+
+// ══════════════════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════════════════
+let toastTimer;
+function showToast(msg){
+  const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2600);
+}
+
+// ══════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════
+loadSynthetic();
+</script>
+</body>
+</html>
